@@ -302,7 +302,6 @@ def decode(loc, priors, use_yolo_regressors:bool=False):
         boxes = point_form(boxes)
     else:
         variances = [0.1, 0.2]
-        
         boxes = torch.cat((
             priors[:, :2] + loc[:, :2] * variances[0] * priors[:, 2:],
             priors[:, 2:] * torch.exp(loc[:, 2:] * variances[1])), 1)

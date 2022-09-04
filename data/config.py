@@ -172,6 +172,20 @@ pascal_sbd_dataset = dataset_base.copy({
     'class_names': PASCAL_CLASSES,
 })
 
+TRASH_CLASSES = ("can", "paper", "plastic", "pet", "pet_label", "pet_lid", "food_waste", "other")
+TRASH_LABEL_MAP = {0 : 1, 1 : 2, 2 : 3, 3 : 4, 4 : 5, 5 : 6, 6 : 7, 7 : 8 }
+cig_trash_dataset = dataset_base.copy({
+    'name' : 'Trash',
+
+    'train_images':'./data/train/images/',
+    'valid_images':'./data/train/images/',
+
+    'train_info':'./data/train/trainval.json',
+    'valid_info':'./data/train/trainval.json',
+
+    'class_names': TRASH_CLASSES,
+    'label_map': TRASH_LABEL_MAP
+})
 
 
 
@@ -766,6 +780,28 @@ yolact_resnet50_pascal_config = yolact_resnet50_config.copy({
         'use_square_anchors': False,
     })
 })
+
+yolact_resnet50_cig_trash_config = yolact_resnet50_config.copy({
+    'name': 'yolact_plus_resnet50_cig_trash',
+
+    'dataset': cig_trash_dataset,
+    'num_classes': len(cig_trash_dataset.class_names) + 1,
+
+    'max_size' : 512,
+    'max_iter': 400000,
+    'lr_steps': (100000, 200000),
+
+    'backbone': yolact_resnet50_config.backbone.copy({
+        'pred_scales': [[32], [64], [128], [256], [512]],
+        'use_square_anchors': False,
+    })
+})
+
+
+
+
+
+
 
 # ----------------------- YOLACT++ CONFIGS ----------------------- #
 
