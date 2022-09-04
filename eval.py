@@ -70,7 +70,7 @@ class fix_parameters:
         self.output_coco_json=False
         self.output_web_json=False
         self.resume=False
-        self.score_threshold=0.15
+        self.score_threshold=0.6
         self.seed=None
         self.shuffle=False
         self.top_k=15

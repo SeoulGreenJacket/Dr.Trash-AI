@@ -184,7 +184,7 @@ class fix_parameters:
         self.output_coco_json=False
         self.output_web_json=False
         self.resume=False
-        self.score_threshold=0.15
+        self.score_threshold=0.6
         self.seed=None
         self.shuffle=False
         self.top_k=15
@@ -195,7 +195,7 @@ class fix_parameters:
 
 global args
 args = fix_parameters()
-
+args.trained_model = 'weights/yolact_resnet50_cig_trash_4210_80000.pth'
 def evalimage(net:Yolact, image:np.array):
     frame = torch.from_numpy(image).cuda().float()
     batch = FastBaseTransform()(frame.unsqueeze(0))
@@ -214,6 +214,7 @@ def evaluate(net: Yolact, dataset,args=args, train_mode=False):
 
 import time
 if __name__ == '__main__':
+    args.trained_model='weights/yolact_resnet50_cig_trash_2631_50000.pth'
     if args.config is not None:
         set_cfg(args.config)
 
@@ -273,20 +274,63 @@ if __name__ == '__main__':
         frame_size = (frameWidth, frameHeight)
         frameRate = 33
         while True:
-            retval, frame = cap.read()
+            retval, img = cap.read()
             if not(retval):
                 break
 
-            args.image = frame
+            args.image = img
             start = time.time()
-            img, boxes, classes = evaluate(net, dataset, args=args)
-            print(boxes)
-            print(classes)
+            try:
+                img, boxes, classes = evaluate(net, dataset, args=args)
+            except:
+                img = img
+                boxes = []
+                classes = []
+            bboxes = []
+            for j in range(len(boxes)):
+                bboxes.append([classes[j], boxes[j]])
+            track_boxes = [tracker.bbox for tracker in trackers]
+            matched, unmatched_trackers, unmatched_detections = tracker_match(track_boxes, [b[1] for b in bboxes])
+
+            for idx, jdx in matched:
+                trackers[idx].set_class(bboxes[jdx][0])
+                trackers[idx].set_bbox(bboxes[jdx][1])
+            checkcheck = False  ##
+            for tracker in trackers:
+                print(tracker.large_roi)
+                print(tracker.small_roi)
+                print('\n')
+            for idx in unmatched_detections:
+                try:
+                    ### --custom---
+                    if trackers[idx].large_roi is True and trackers[idx].small_roi is True:
+                        print('Congratulations Count {}'.format(trackers[idx].cls))
+                        checkcheck = True
+                    trackers.pop(idx)
+                except:
+                    pass
+            if checkcheck is True:
+                raise Exception('OK')  ##edit
+
+            for idx in unmatched_trackers:
+                person = PersonTracker()
+                person.set_class(bboxes[idx][0])
+                person.set_bbox(bboxes[idx][1])
+                trackers.append(person)
+
+            font_face = cv2.FONT_HERSHEY_DUPLEX
+            font_scale = 0.6
+            font_thickness = 1
+            text_color = [255, 255, 255]
+            for j in range(len(boxes)):
+                x1, y1, x2, y2 = boxes[j]
+                cv2.putText(img, str(trackers[j].id), (x1, y1-20), font_face, font_scale, text_color, font_thickness,
+                            cv2.LINE_AA)    ###Edit
+                trash_count(img, trackers[j])
+
+
             print(time.time()-start)
-            #cv2.imshow('frame', img)
-
-            boxes = []
-
+            cv2.imshow('frame', img)
 
 
             key = cv2.waitKey(frameRate)
