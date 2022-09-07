@@ -48,3 +48,5 @@ def trash(trashcan_id: int, type: str, ok: bool):
 
 if __name__ == '__main__':
     main()
+else:
+    connect()
