@@ -1,5 +1,6 @@
 import pika
 import json
+import base64
 
 host = "seheon.email"
 port = 5672
@@ -16,6 +17,7 @@ def consume_frame_image(ch, method, properties, body):
     print(json_raw)
     frame_image = json.loads(json_raw)
     print(frame_image)
+    image_raw = base64.b64decode(frame_image['image'])
     # Something Important
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
