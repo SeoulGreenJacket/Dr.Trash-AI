@@ -1,5 +1,6 @@
 import pika
 import json
+import base64
 
 host = "seheon.email"
 port = 5672
@@ -23,6 +24,7 @@ def image_to_objects(image):
 def consume_frame_image(ch, method, properties, body):
     frame = json.loads(body.decode())
     timestamp, cameraId, image = frame['timestamp'], frame['cameraId'], frame['image']
+    image = base64.b64decode(image)
     objects = image_to_objects(image)
     data = {'timestamp': timestamp, 'cameraId': cameraId, 'objects': objects}
     message = json.dumps(data)
