@@ -25,10 +25,10 @@ class PersonTracker(object):
         self.centroid = tuple(map(int, ( x1 + self.h / 2, y1 + self.w / 2)))
         return
 
-    def set_class(self, _class):
+    def set_class(self, _class, cls_list):
         self.cls_num = _class
-        #self.cls = cfg.dataset.class_names[_class]
-        #print(self.cls)
+        self.cls = cls_list[int(_class)]
+        print(self.cls)
 
     '''
     def annotate(self, image):
@@ -123,6 +123,8 @@ def trash_count(img, tracker):
     if tracker.large_roi is True:
         if sx < tracker.bbox[0] and sy < tracker.bbox[1] and sx+sw > tracker.bbox[2] and sy+sh > tracker.bbox[3]:
             tracker.small_roi = True
+        else:
+            tracker.small_roi = False
 
 
 

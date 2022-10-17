@@ -13,6 +13,7 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
+from datetime import datetime
 import imagezmq
 import numpy as np
 from tracker import *
@@ -153,6 +154,7 @@ if __name__ == '__main__':
     cap = cv2.VideoCapture(0)
     trackers = []
     TRASH_COUNT = 0
+    CAMERA_ID = 0
     with torch.no_grad():
         while True:
             ret, img0 = cap.read()
@@ -173,7 +175,7 @@ if __name__ == '__main__':
             matched, unmatched_trackers, unmatched_detections = tracker_match(track_boxes, [b[1] for b in bboxes])
 
             for idx, jdx in matched:
-                trackers[idx].set_class(bboxes[jdx][0])
+                trackers[idx].set_class(bboxes[jdx][0], names)
                 trackers[idx].set_bbox(bboxes[jdx][1])
             checkcheck = False
             for tracker in trackers:
@@ -183,20 +185,21 @@ if __name__ == '__main__':
             for idx in unmatched_detections:
                 try:
                     if trackers[idx].large_roi is True and trackers[idx].small_roi is True:
-                        #print('Congratulations Count {}'.format(trackers[idx].cls))
+                        ### Write DB code below
+                        print('class name : {}, time_stamp : {}, camera_id : {}'.format(trackers[idx].cls, datetime.now(), CAMERA_ID))
+                        ###################
                         TRASH_COUNT += 1
-                        #checkcheck = True
                     trackers.pop(idx)
                 except:
                     pass
 
-            print('Trash Count:', TRASH_COUNT)
+            print('Trash Count: {}'.format(TRASH_COUNT))
             #if checkcheck is True:
             #    raise Exception('OK')
 
             for idx in unmatched_trackers:
                 person = PersonTracker()
-                person.set_class(bboxes[idx][0])
+                person.set_class(bboxes[idx][0], names)
                 person.set_bbox(bboxes[idx][1])
                 trackers.append(person)
 
