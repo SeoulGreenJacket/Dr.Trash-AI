@@ -1,11 +1,12 @@
-import argparse
-import time
 from pathlib import Path
-
 import cv2
+import time
 import torch
+import imagezmq
+import argparse
+import numpy as np
+from datetime import datetime
 import torch.backends.cudnn as cudnn
-from numpy import random
 
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages, letterbox
@@ -13,15 +14,12 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
-from datetime import datetime
-import imagezmq
-import numpy as np
 from tracker import *
 
 
 def detect(img0, imgsz, stride, device, model):
     global old_img_w, old_img_h, old_img_b
-    webcam = False
+    BATCH_INFERENCE = False
     t0 = time.time()
     img = letterbox(img0, imgsz, stride=stride)[0]
     img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
@@ -56,7 +54,7 @@ def detect(img0, imgsz, stride, device, model):
 
     # Process detections
     for i, det in enumerate(pred):  # detections per image
-        if webcam:  # batch_size >= 1
+        if BATCH_INFERENCE:  # batch_size >= 1
             p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
         else:
             p, s, im0 = path, '', img0
@@ -118,7 +116,6 @@ if __name__ == '__main__':
     print(opt)
     # check_requirements(exclude=('pycocotools', 'thop'))
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
-    webcam = False
     path = ''
 
     set_logging()
@@ -143,7 +140,7 @@ if __name__ == '__main__':
 
     # Get names and colors
     names = model.module.names if hasattr(model, 'module') else model.names
-    colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
+    colors = [[np.random.randint(0, 255) for _ in range(3)] for _ in names]
 
     # Run inference
     if device.type != 'cpu':
@@ -152,21 +149,19 @@ if __name__ == '__main__':
     old_img_b = 1
 
     cap = cv2.VideoCapture(0)
-    trackers = []
     TRASH_COUNT = 0
     CAMERA_ID = 0
+    trackers = []
     with torch.no_grad():
         while True:
             ret, img0 = cap.read()
             try:
                 im0, det = detect(img0, imgsz, stride, device, model)
                 det = det.cpu().detach().numpy()
-                boxes = det[:, :4]
-                classes = det[:, 5]
+                boxes, classes = det[:, :4], det[:, 5]
             except:
                 im0 = img0
-                boxes = []
-                classes = []
+                boxes, classes = [], []
             bboxes = []
             for i in range(len(det)):
                 bboxes.append([classes[i], boxes[i]])
@@ -177,7 +172,7 @@ if __name__ == '__main__':
             for idx, jdx in matched:
                 trackers[idx].set_class(bboxes[jdx][0], names)
                 trackers[idx].set_bbox(bboxes[jdx][1])
-            checkcheck = False
+            # for debug
             for tracker in trackers:
                 print(tracker.large_roi)
                 print(tracker.small_roi)
@@ -194,18 +189,12 @@ if __name__ == '__main__':
                     pass
 
             print('Trash Count: {}'.format(TRASH_COUNT))
-            #if checkcheck is True:
-            #    raise Exception('OK')
 
             for idx in unmatched_trackers:
                 person = PersonTracker()
                 person.set_class(bboxes[idx][0], names)
                 person.set_bbox(bboxes[idx][1])
                 trackers.append(person)
-
-            for tracker in trackers:
-                # print(tracker.id)
-                pass
 
             for i in range(len(boxes)):
                 x1, y1, x2, y2 = boxes[i]
