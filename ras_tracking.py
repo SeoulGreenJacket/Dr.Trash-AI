@@ -1,9 +1,7 @@
 from pathlib import Path
-from sys import api_version
 import cv2
 import time
 import torch
-import imagezmq
 import argparse
 import numpy as np
 from datetime import datetime
@@ -31,6 +29,10 @@ from utils.torch_utils import (
     TracedModel,
 )
 from tracker import *
+
+from kafka import KafkaConsumer
+from dbclient import Client as DbClient
+import os
 
 
 def detect(img0, imgsz, stride, device, model):
@@ -226,12 +228,20 @@ if __name__ == "__main__":
 
     from kafka import KafkaConsumer
 
+    camera_code = "camera"
     consumer = KafkaConsumer(
-        "camera", bootstrap_servers=["seheon.codes:29092"], api_version=(0, 10, 1)
+        camera_code,
+        bootstrap_servers=[f"{os.environ('KAFKA_HOST')}:os.environ('KAFKA_PORT')"],
+        api_version=(0, 10, 1),
+    )
+    database = DbClient(
+        host=os.environ("DB_HOST"),
+        port=os.environ("DB_PORT"),
+        db_name=os.environ("DB_NAME"),
+        user=os.environ("DB_USERNAME"),
+        password=os.environ("DB_PASSWORD"),
     )
 
-    TRASH_COUNT = 0
-    CAMERA_ID = 0
     trackers = []
     with torch.no_grad():
         for bytes in consumer:
@@ -268,18 +278,14 @@ if __name__ == "__main__":
                         and trackers[idx].small_roi is True
                     ):
                         ### Write DB code below
-                        print(
-                            "class name : {}, time_stamp : {}, camera_id : {}".format(
-                                trackers[idx].cls, datetime.now(), CAMERA_ID
-                            )
+                        database.query(
+                            "INSERT INTO trash (code, type) VALUES (%s, %s)",
+                            (camera_code, trackers[idx].cls),
                         )
                         ###################
-                        TRASH_COUNT += 1
                     trackers.pop(idx)
                 except:
                     pass
-
-            print("Trash Count: {}".format(TRASH_COUNT))
 
             for idx in unmatched_trackers:
                 person = PersonTracker()
