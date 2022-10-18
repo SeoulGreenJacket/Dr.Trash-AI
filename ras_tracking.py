@@ -1,4 +1,5 @@
 from pathlib import Path
+from sys import api_version
 import cv2
 import time
 import torch
@@ -223,13 +224,19 @@ if __name__ == "__main__":
     old_img_w = old_img_h = imgsz
     old_img_b = 1
 
-    cap = cv2.VideoCapture(0)
+    from kafka import KafkaConsumer
+
+    consumer = KafkaConsumer(
+        "camera", bootstrap_servers=["seheon.codes:29092"], api_version=(0, 10, 1)
+    )
+
     TRASH_COUNT = 0
     CAMERA_ID = 0
     trackers = []
     with torch.no_grad():
-        while True:
-            ret, img0 = cap.read()
+        for bytes in consumer:
+            buf = np.fromstring(bytes.value)
+            img0 = cv2.imdecode(buf)
             try:
                 im0, det = detect(img0, imgsz, stride, device, model)
                 det = det.cpu().detach().numpy()
@@ -249,11 +256,11 @@ if __name__ == "__main__":
             for idx, jdx in matched:
                 trackers[idx].set_class(bboxes[jdx][0], names)
                 trackers[idx].set_bbox(bboxes[jdx][1])
-            # for debug
-            for tracker in trackers:
-                print(tracker.large_roi)
-                print(tracker.small_roi)
-                print("\n")
+            ##for debug
+            # for tracker in trackers:
+            #     print(tracker.large_roi)
+            #     print(tracker.small_roi)
+            #     print("\n")
             for idx in unmatched_detections:
                 try:
                     if (
@@ -294,6 +301,6 @@ if __name__ == "__main__":
                 )
                 trash_count(im0, trackers[i])
 
-            if opt.view_img:
-                cv2.imshow("test", im0)
-                cv2.waitKey(1)  # 1 millisecond
+            # if opt.view_img:
+            #     cv2.imshow("test", im0)
+            #     cv2.waitKey(1)  # 1 millisecond
