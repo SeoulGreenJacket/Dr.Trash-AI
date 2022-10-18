@@ -279,7 +279,7 @@ if __name__ == "__main__":
                     ):
                         ### Write DB code below
                         database.query(
-                            "INSERT INTO trash (code, type) VALUES (%s, %s)",
+                            f"INSERT INTO {os.environ('DB_SCHEMA')}.trash (code, type) VALUES (%s, %s)",
                             (camera_code, trackers[idx].cls),
                         )
                         ###################
