@@ -245,7 +245,7 @@ if __name__ == "__main__":
     trackers = []
     with torch.no_grad():
         for bytes in consumer:
-            buf = np.fromstring(bytes.value)
+            buf = np.frombuffer(bytes.value)
             img0 = cv2.imdecode(buf)
             try:
                 im0, det = detect(img0, imgsz, stride, device, model)
