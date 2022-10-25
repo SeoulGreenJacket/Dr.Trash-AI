@@ -38,5 +38,6 @@ thop  # FLOPs computation
 # pycocotools>=2.0  # COCO mAP
 # roboflow
 
-psycopg
+psycopg[binary]
 kafka-python
+scikit-learn==0.22.2.post1

@@ -1,3 +1,4 @@
+from io import BytesIO
 from pathlib import Path
 import cv2
 import time
@@ -180,6 +181,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--no-trace", action="store_true", help="don`t trace model")
     opt = parser.parse_args()
+    opt.classes
     print(opt)
     # check_requirements(exclude=('pycocotools', 'thop'))
     source, weights, view_img, save_txt, imgsz, trace = (
@@ -228,85 +230,101 @@ if __name__ == "__main__":
 
     from kafka import KafkaConsumer
 
-    camera_code = "camera"
-    consumer = KafkaConsumer(
-        camera_code,
-        bootstrap_servers=[f"{os.environ('KAFKA_HOST')}:os.environ('KAFKA_PORT')"],
-        api_version=(0, 10, 1),
+    usage_consumer = KafkaConsumer(
+        os.environ["KAFKA_TOPIC_MAIN"],
+        bootstrap_servers=[f"{os.environ['KAFKA_HOST']}:{os.environ['KAFKA_PORT']}"],
     )
+
     database = DbClient(
-        host=os.environ("DB_HOST"),
-        port=os.environ("DB_PORT"),
-        db_name=os.environ("DB_NAME"),
-        user=os.environ("DB_USERNAME"),
-        password=os.environ("DB_PASSWORD"),
+        host=os.environ["DB_HOST"],
+        port=os.environ["DB_PORT"],
+        dbname=os.environ["DB_NAME"],
+        user=os.environ["DB_USERNAME"],
+        password=os.environ["DB_PASSWORD"],
     )
 
     trackers = []
     with torch.no_grad():
-        for bytes in consumer:
-            buf = np.frombuffer(bytes.value)
-            img0 = cv2.imdecode(buf)
-            try:
-                im0, det = detect(img0, imgsz, stride, device, model)
-                det = det.cpu().detach().numpy()
-                boxes, classes = det[:, :4], det[:, 5]
-            except:
-                im0 = img0
-                boxes, classes = [], []
-            bboxes = []
-            for i in range(len(det)):
-                bboxes.append([classes[i], boxes[i]])
-
-            track_boxes = [tracker.bbox for tracker in trackers]
-            matched, unmatched_trackers, unmatched_detections = tracker_match(
-                track_boxes, [b[1] for b in bboxes]
+        for usage_msg in usage_consumer:
+            usage_id, camera_code = usage_msg.value.decode("utf-8").split("-")
+            frame_consumer = KafkaConsumer(
+                camera_code,
+                bootstrap_servers=[
+                    f"{os.environ['KAFKA_HOST']}:{os.environ['KAFKA_PORT']}"
+                ],
             )
 
-            for idx, jdx in matched:
-                trackers[idx].set_class(bboxes[jdx][0], names)
-                trackers[idx].set_bbox(bboxes[jdx][1])
-            ##for debug
-            # for tracker in trackers:
-            #     print(tracker.large_roi)
-            #     print(tracker.small_roi)
-            #     print("\n")
-            for idx in unmatched_detections:
+            for frame_msg in frame_consumer:
+                if frame_msg.value == b"end":
+                    break
+
+                buf = BytesIO(frame_msg.value)
+                arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
+                img0 = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+
                 try:
-                    if (
-                        trackers[idx].large_roi is True
-                        and trackers[idx].small_roi is True
-                    ):
-                        ### Write DB code below
-                        database.query(
-                            f"INSERT INTO {os.environ('DB_SCHEMA')}.trash (code, type) VALUES (%s, %s)",
-                            (camera_code, trackers[idx].cls),
-                        )
-                        ###################
-                    trackers.pop(idx)
+                    im0, det = detect(img0, imgsz, stride, device, model)
+                    det = det.cpu().detach().numpy()
+                    boxes, classes = det[:, :4], det[:, 5]
                 except:
-                    pass
+                    im0 = img0
+                    boxes, classes = [], []
+                bboxes = []
+                for i in range(len(det)):
+                    bboxes.append([classes[i], boxes[i]])
 
-            for idx in unmatched_trackers:
-                person = PersonTracker()
-                person.set_class(bboxes[idx][0], names)
-                person.set_bbox(bboxes[idx][1])
-                trackers.append(person)
-
-            for i in range(len(boxes)):
-                x1, y1, x2, y2 = boxes[i]
-                cv2.putText(
-                    im0,
-                    str(trackers[i].id),
-                    (int(x1), int(y1) - 20),
-                    cv2.FONT_HERSHEY_DUPLEX,
-                    0.6,
-                    [255, 255, 255],
-                    1,
-                    cv2.LINE_AA,
+                track_boxes = [tracker.bbox for tracker in trackers]
+                matched, unmatched_trackers, unmatched_detections = tracker_match(
+                    track_boxes, [b[1] for b in bboxes]
                 )
-                trash_count(im0, trackers[i])
 
-            # if opt.view_img:
-            #     cv2.imshow("test", im0)
-            #     cv2.waitKey(1)  # 1 millisecond
+                for idx, jdx in matched:
+                    trackers[idx].set_class(bboxes[jdx][0], names)
+                    trackers[idx].set_bbox(bboxes[jdx][1])
+                ##for debug
+                # for tracker in trackers:
+                #     print(tracker.large_roi)
+                #     print(tracker.small_roi)
+                #     print("\n")
+                for idx in unmatched_detections:
+                    try:
+                        if (
+                            trackers[idx].large_roi is True
+                            and trackers[idx].small_roi is True
+                        ):
+                            database.query(
+                                f'INSERT INTO {os.environ("DB_SCHEMA")}.trash ("usageId", type) VALUES (%s, %s)',
+                                (usage_id, trackers[idx].cls),
+                            )
+                        trackers.pop(idx)
+                    except:
+                        pass
+
+                for idx in unmatched_trackers:
+                    person = PersonTracker()
+                    person.set_class(bboxes[idx][0], names)
+                    person.set_bbox(bboxes[idx][1])
+                    trackers.append(person)
+
+                for i in range(len(boxes)):
+                    x1, y1, x2, y2 = boxes[i]
+                    cv2.putText(
+                        im0,
+                        str(trackers[i].id),
+                        (int(x1), int(y1) - 20),
+                        cv2.FONT_HERSHEY_DUPLEX,
+                        0.6,
+                        [255, 255, 255],
+                        1,
+                        cv2.LINE_AA,
+                    )
+                    trash_count(im0, trackers[i])
+
+                # if opt.view_img:
+                #     cv2.imshow("test", im0)
+                #     cv2.waitKey(1)  # 1 millisecond
+
+            frame_consumer.close()
+            trackers.clear()
+        database.close()
+        usage_consumer.close()
