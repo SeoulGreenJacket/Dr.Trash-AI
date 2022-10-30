@@ -246,7 +246,7 @@ if __name__ == "__main__":
     trackers = []
     with torch.no_grad():
         for usage_msg in usage_consumer:
-            usage_id, camera_code = usage_msg.value.decode("utf-8").split("-")
+            usage_id, camera_code = usage_msg.value.decode("utf-8").split("_")
             frame_consumer = KafkaConsumer(
                 camera_code,
                 bootstrap_servers=[
@@ -293,7 +293,7 @@ if __name__ == "__main__":
                             and trackers[idx].small_roi is True
                         ):
                             database.query(
-                                f'INSERT INTO {os.environ("DB_SCHEMA")}.trash ("usageId", type) VALUES (%s, %s)',
+                                f'INSERT INTO {os.environ("DB_SCHEMA")}.trash ("usageId", type) VALUES (\'%s\', \'%s\')',
                                 (usage_id, trackers[idx].cls),
                             )
                         trackers.pop(idx)
