@@ -243,7 +243,8 @@ if __name__ == "__main__":
         password=os.environ["DB_PASSWORD"],
     )
 
-    trackers = []
+    current_none_count = 0
+    throwed_query = False
     with torch.no_grad():
         for usage_msg in usage_consumer:
             usage_id, camera_code = usage_msg.value.decode("utf-8").split("_")
@@ -265,46 +266,22 @@ if __name__ == "__main__":
                 try:
                     im0, det = detect(img0, imgsz, stride, device, model)
                     det = det.cpu().detach().numpy()
-                    boxes, classes = det[:, :4], det[:, 5]
+                    boxes, classes = det[:, :4], det[:,5]
+                    if not throwed_query:
+                        database.query(
+                            f'INSERT INTO {os.environ("DB_SCHEMA")}.trash ("usageId", type) VALUES (\'%s\', \'%s\')',
+                            (usage_id, trackers[idx].cls),
+                        )
+                        throwed_query = True
+                    current_none_count = 0
                 except:
                     im0 = img0
                     boxes, classes = [], []
-                bboxes = []
-                for i in range(len(det)):
-                    bboxes.append([classes[i], boxes[i]])
+                    current_none_count += 1
 
-                track_boxes = [tracker.bbox for tracker in trackers]
-                matched, unmatched_trackers, unmatched_detections = tracker_match(
-                    track_boxes, [b[1] for b in bboxes]
-                )
-
-                for idx, jdx in matched:
-                    trackers[idx].set_class(bboxes[jdx][0], names)
-                    trackers[idx].set_bbox(bboxes[jdx][1])
-                ##for debug
-                # for tracker in trackers:
-                #     print(tracker.large_roi)
-                #     print(tracker.small_roi)
-                #     print("\n")
-                for idx in unmatched_detections:
-                    try:
-                        if (
-                            trackers[idx].large_roi is True
-                            and trackers[idx].small_roi is True
-                        ):
-                            database.query(
-                                f'INSERT INTO {os.environ("DB_SCHEMA")}.trash ("usageId", type) VALUES (\'%s\', \'%s\')',
-                                (usage_id, trackers[idx].cls),
-                            )
-                        trackers.pop(idx)
-                    except:
-                        pass
-
-                for idx in unmatched_trackers:
-                    person = PersonTracker()
-                    person.set_class(bboxes[idx][0], names)
-                    person.set_bbox(bboxes[idx][1])
-                    trackers.append(person)
+                if current_none_count == 50:
+                    throwed_query = False
+                    current_none_count = 0
 
                 for i in range(len(boxes)):
                     x1, y1, x2, y2 = boxes[i]
@@ -318,11 +295,6 @@ if __name__ == "__main__":
                         1,
                         cv2.LINE_AA,
                     )
-                    trash_count(im0, trackers[i])
-
-                # if opt.view_img:
-                #     cv2.imshow("test", im0)
-                #     cv2.waitKey(1)  # 1 millisecond
 
             frame_consumer.close()
             trackers.clear()

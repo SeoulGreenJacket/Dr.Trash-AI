@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from collections import deque
 #from scipy.optimize import linear_sum_assignment as linear_assignment
-from sklearn.utils.linear_assignment_ import linear_assignment
+from sklearn.utils import *
 
 def id_gen(size=6, chars=string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for x in range(size))
@@ -15,7 +15,6 @@ class PersonTracker(object):
         self.q = deque(maxlen=30)
         self.large_roi = False
         self.small_roi = False
-        return
 
     def set_bbox(self, bbox):
         self.bbox = bbox
@@ -23,11 +22,10 @@ class PersonTracker(object):
         self.h = 1e-6 + x2 - x1
         self.w = 1e-6 + y2 - y1
         self.centroid = tuple(map(int, ( x1 + self.h / 2, y1 + self.w / 2)))
-        return
 
     def set_class(self, _class, cls_list):
         self.cls_num = _class
-        self.cls = cls_list[int(_class)]
+        self.cls = cls_list[int(_class)].split("_")[0]
         print(self.cls)
 
     '''
@@ -111,20 +109,7 @@ def tracker_match(trackers, detections, iou_thrd = 0.3):
     return matches, np.array(unmatched_detections), np.array(unmatched_trackers)
 
 def trash_count(img, tracker):
-    lx=0; ly=0; lw=500; lh=500
-    large_roi = img[ly:ly+lh, lx:lx+lw]
-    cv2.rectangle(large_roi, (0,0), (lh-1, lw-1), (0, 255, 0))
 
-    sx=200; sy=200; sw=300; sh=300
-    small_roi = img[sy:sy+sh, sx:sx+sw]
-    cv2.rectangle(small_roi, (0,0), (sh-1, sw-1), (0, 0, 255))
-    if tracker.h / lh > 0.8 or tracker.w / lw > 0.8:
-        tracker.large_roi = True
-    if tracker.large_roi is True:
-        if sx < tracker.bbox[0] and sy < tracker.bbox[1] and sx+sw > tracker.bbox[2] and sy+sh > tracker.bbox[3]:
-            tracker.small_roi = True
-        else:
-            tracker.small_roi = False
 
 
 
