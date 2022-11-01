@@ -77,9 +77,9 @@ def detect(img0, imgsz, stride, device, model):
     )
     t3 = time_synchronized()
 
-    # Apply Classifier
-    if classify:
-        pred = apply_classifier(pred, modelc, img, im0s)
+    # # Apply Classifier
+    # if classify:
+    #     pred = apply_classifier(pred, modelc, img, im0s)
 
     # Process detections
     for i, det in enumerate(pred):  # detections per image
@@ -101,93 +101,56 @@ def detect(img0, imgsz, stride, device, model):
                 s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
             # Write results
-            for *xyxy, conf, cls in reversed(det):
-                if save_txt:  # Write to file
-                    xywh = (
-                        (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn)
-                        .view(-1)
-                        .tolist()
-                    )  # normalized xywh
-                    line = (
-                        (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)
-                    )  # label format
-                    with open(txt_path + ".txt", "a") as f:
-                        f.write(("%g " * len(line)).rstrip() % line + "\n")
+            # for *xyxy, conf, cls in reversed(det):
+            #     if save_txt:  # Write to file
+            #         xywh = (
+            #             (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn)
+            #             .view(-1)
+            #             .tolist()
+            #         )  # normalized xywh
+            #         line = (
+            #             (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)
+            #         )  # label format
+            #         with open(txt_path + ".txt", "a") as f:
+            #             f.write(("%g " * len(line)).rstrip() % line + "\n")
+            #
+            #     if view_img:  # Add bbox to image
+            #         label = f"{names[int(cls)]} {conf:.2f}"
+            #         plot_one_box(
+            #             xyxy, im0, label=label, color=colors[int(cls)], line_thickness=4
+            #         )
 
-                if view_img:  # Add bbox to image
-                    label = f"{names[int(cls)]} {conf:.2f}"
-                    plot_one_box(
-                        xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1
-                    )
 
-        # Print time (inference + NMS)
-        print(
-            f"{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS"
-        )
-
-        # Stream results
-
-    print(f"Done. ({time.time() - t0:.3f}s)")
     return im0, det
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--weights", nargs="+", type=str, default="yolov7.pt", help="model.pt path(s)"
-    )
-    parser.add_argument(
-        "--source", type=str, default="inference/images", help="source"
-    )  # file/folder, 0 for webcam
-    parser.add_argument(
-        "--img-size", type=int, default=640, help="inference size (pixels)"
-    )
-    parser.add_argument(
-        "--conf-thres", type=float, default=0.25, help="object confidence threshold"
-    )
-    parser.add_argument(
-        "--iou-thres", type=float, default=0.45, help="IOU threshold for NMS"
-    )
-    parser.add_argument(
-        "--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu"
-    )
+    parser.add_argument("--weights", nargs="+", type=str, default="yolov7.pt", help="model.pt path(s)")
+    parser.add_argument("--source", type=str, default="inference/images", help="source")  # file/folder, 0 for webcam
+    parser.add_argument("--img-size", type=int, default=512, help="inference size (pixels)")
+    parser.add_argument("--conf-thres", type=float, default=0.25, help="object confidence threshold")
+    parser.add_argument("--iou-thres", type=float, default=0.55, help="IOU threshold for NMS")
+    parser.add_argument("--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     parser.add_argument("--view-img", action="store_true", help="display results")
     parser.add_argument("--save-txt", action="store_true", help="save results to *.txt")
-    parser.add_argument(
-        "--save-conf", action="store_true", help="save confidences in --save-txt labels"
-    )
-    parser.add_argument(
-        "--nosave", action="store_true", help="do not save images/videos"
-    )
-    parser.add_argument(
-        "--classes",
-        nargs="+",
-        type=int,
-        help="filter by class: --class 0, or --class 0 2 3",
-    )
-    parser.add_argument(
-        "--agnostic-nms", action="store_true", help="class-agnostic NMS"
-    )
+    parser.add_argument("--save-conf", action="store_true", help="save confidences in --save-txt labels")
+    parser.add_argument("--nosave", action="store_true", help="do not save images/videos")
+    parser.add_argument("--classes",nargs="+",type=int,help="filter by class: --class 0, or --class 0 2 3",)
+    parser.add_argument("--agnostic-nms", action="store_true", help="class-agnostic NMS")
     parser.add_argument("--augment", action="store_true", help="augmented inference")
     parser.add_argument("--update", action="store_true", help="update all models")
-    parser.add_argument(
-        "--project", default="runs/detect", help="save results to project/name"
-    )
+    parser.add_argument("--project", default="runs/detect", help="save results to project/name")
     parser.add_argument("--name", default="exp", help="save results to project/name")
-    parser.add_argument(
-        "--exist-ok",
-        action="store_true",
-        help="existing project/name ok, do not increment",
-    )
+    parser.add_argument("--exist-ok",action="store_true",help="existing project/name ok, do not increment",)
     parser.add_argument("--no-trace", action="store_true", help="don`t trace model")
     opt = parser.parse_args()
-    opt.classes
     print(opt)
     # check_requirements(exclude=('pycocotools', 'thop'))
     source, weights, view_img, save_txt, imgsz, trace = (
         opt.source,
         opt.weights,
-        opt.view_img,
+        True, # opt.view_img,
         opt.save_txt,
         opt.img_size,
         not opt.no_trace,
@@ -228,13 +191,13 @@ if __name__ == "__main__":
     old_img_w = old_img_h = imgsz
     old_img_b = 1
 
-    from kafka import KafkaConsumer
-
-    usage_consumer = KafkaConsumer(
-        os.environ["KAFKA_TOPIC_MAIN"],
-        bootstrap_servers=[f"{os.environ['KAFKA_HOST']}:{os.environ['KAFKA_PORT']}"],
-    )
-
+    # from kafka import KafkaConsumer
+    #
+    # usage_consumer = KafkaConsumer(
+    #     os.environ["KAFKA_TOPIC_MAIN"],
+    #     bootstrap_servers=[f"{os.environ['KAFKA_HOST']}:{os.environ['KAFKA_PORT']}"],
+    # )
+    #
     database = DbClient(
         host=os.environ["DB_HOST"],
         port=os.environ["DB_PORT"],
@@ -243,88 +206,146 @@ if __name__ == "__main__":
         password=os.environ["DB_PASSWORD"],
     )
 
-    trackers = []
+    current_none_count = 0
+    throwed_query = False
+    track_count = 0
     with torch.no_grad():
-        for usage_msg in usage_consumer:
-            usage_id, camera_code = usage_msg.value.decode("utf-8").split("_")
-            frame_consumer = KafkaConsumer(
-                camera_code,
-                bootstrap_servers=[
-                    f"{os.environ['KAFKA_HOST']}:{os.environ['KAFKA_PORT']}"
-                ],
-            )
+        cam = cv2.VideoCapture(1)
 
-            for frame_msg in frame_consumer:
-                if frame_msg.value == b"end":
-                    break
+        while True:
+            retval, img0 = cam.read()
+            result_img, det = detect(img0, imgsz, stride, device, model)
 
-                buf = BytesIO(frame_msg.value)
-                arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
-                img0 = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+            if current_none_count >= 30 and throwed_query:
+                throwed_query = False
+                current_none_count = 0
 
-                try:
-                    im0, det = detect(img0, imgsz, stride, device, model)
-                    det = det.cpu().detach().numpy()
-                    boxes, classes = det[:, :4], det[:, 5]
-                except:
-                    im0 = img0
-                    boxes, classes = [], []
-                bboxes = []
-                for i in range(len(det)):
-                    bboxes.append([classes[i], boxes[i]])
+            classes = []
+            # detection_bound = (0,0,640,640)
+            # plot_one_box(detection_bound, result_img, label="range", color=(0,0,0) )
+            max_conf_idx = 0
+            for idx, val in enumerate(det):
+                *xyxy, conf, cls = val
+                classes.append(int(cls))
+                if conf > max_conf_idx:
+                    max_conf_idx = idx
+                # if xyxy[0] >= detection_bound[0] and xyxy[1] >= detection_bound[1] \
+                #         and xyxy[2] <= detection_bound[2] and xyxy[3] <= detection_bound[3]:
+                label = f"{names[classes[idx]]} {conf:.2f}"
+                plot_one_box(xyxy, result_img, label=label, color=colors[classes[idx]], line_thickness=4)
+                # classes.append(int(cls)) #클래스 (객체 번호 집어넣음)
 
-                track_boxes = [tracker.bbox for tracker in trackers]
-                matched, unmatched_trackers, unmatched_detections = tracker_match(
-                    track_boxes, [b[1] for b in bboxes]
-                )
 
-                for idx, jdx in matched:
-                    trackers[idx].set_class(bboxes[jdx][0], names)
-                    trackers[idx].set_bbox(bboxes[jdx][1])
-                ##for debug
-                # for tracker in trackers:
-                #     print(tracker.large_roi)
-                #     print(tracker.small_roi)
-                #     print("\n")
-                for idx in unmatched_detections:
-                    try:
-                        if (
-                            trackers[idx].large_roi is True
-                            and trackers[idx].small_roi is True
-                        ):
-                            database.query(
-                                f'INSERT INTO {os.environ("DB_SCHEMA")}.trash ("usageId", type) VALUES (\'%s\', \'%s\')',
-                                (usage_id, trackers[idx].cls),
-                            )
-                        trackers.pop(idx)
-                    except:
-                        pass
+            if len(classes) == 0:
+                current_none_count += 1
 
-                for idx in unmatched_trackers:
-                    person = PersonTracker()
-                    person.set_class(bboxes[idx][0], names)
-                    person.set_bbox(bboxes[idx][1])
-                    trackers.append(person)
+            else:
+                if not throwed_query:
+                    track_count += 1
+                    print(f"트래킹 됨! {track_count} 종류: {names[classes[max_conf_idx]]}")
+                    if "pp" in names[classes[max_conf_idx]] or "ps" in names[classes[max_conf_idx]] or "pet" in names[classes[max_conf_idx]]:
+                        type = "plastic"
+                    else:
+                        type = names[classes[max_conf_idx]]
 
-                for i in range(len(boxes)):
-                    x1, y1, x2, y2 = boxes[i]
-                    cv2.putText(
-                        im0,
-                        str(trackers[i].id),
-                        (int(x1), int(y1) - 20),
-                        cv2.FONT_HERSHEY_DUPLEX,
-                        0.6,
-                        [255, 255, 255],
-                        1,
-                        cv2.LINE_AA,
-                    )
-                    trash_count(im0, trackers[i])
+                    # database.query(
+                    #     f'INSERT INTO {os.environ["DB_SCHEMA"]}.trash ("usageId", type) VALUES (%s, %s) RETURNING id;',
+                    #     (1, type),
+                    # )
+                    throwed_query = True
+                current_none_count = 0
 
-                # if opt.view_img:
-                #     cv2.imshow("test", im0)
-                #     cv2.waitKey(1)  # 1 millisecond
+            # for x in classes:
+            #     print(names[x],end=', ')
+            # if classes:
+            #     print()
 
-            frame_consumer.close()
-            trackers.clear()
+            cv2.imshow("title", result_img)
+            cv2.waitKey(1)
         database.close()
-        usage_consumer.close()
+
+    # trackers = []
+    # with torch.no_grad():
+    #     for usage_msg in usage_consumer:
+    #         usage_id, camera_code = usage_msg.value.decode("utf-8").split("_")
+    #         frame_consumer = KafkaConsumer(
+    #             camera_code,
+    #             bootstrap_servers=[
+    #                 f"{os.environ['KAFKA_HOST']}:{os.environ['KAFKA_PORT']}"
+    #             ],
+    #         )
+    #
+    #         for frame_msg in frame_consumer:
+    #             if frame_msg.value == b"end":
+    #                 break
+    #
+    #             buf = BytesIO(frame_msg.value)
+    #             arr = np.frombuffer(buf.getvalue(), dtype=np.uint8)
+    #             img0 = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+    #
+    #             try:
+    #                 im0, det = detect(img0, imgsz, stride, device, model)
+    #                 det = det.cpu().detach().numpy()
+    #                 boxes, classes = det[:, :4], det[:, 5]
+    #             except:
+    #                 im0 = img0
+    #                 boxes, classes = [], []
+    #             bboxes = []
+    #             for i in range(len(det)):
+    #                 bboxes.append([classes[i], boxes[i]])
+    #
+    #             track_boxes = [tracker.bbox for tracker in trackers]
+    #             matched, unmatched_trackers, unmatched_detections = tracker_match(
+    #                 track_boxes, [b[1] for b in bboxes]
+    #             )
+    #
+    #             for idx, jdx in matched:
+    #                 trackers[idx].set_class(bboxes[jdx][0], names)
+    #                 trackers[idx].set_bbox(bboxes[jdx][1])
+    #             ##for debug
+    #             # for tracker in trackers:
+    #             #     print(tracker.large_roi)
+    #             #     print(tracker.small_roi)
+    #             #     print("\n")
+    #             for idx in unmatched_detections:
+    #                 try:
+    #                     if (
+    #                         trackers[idx].large_roi is True
+    #                         and trackers[idx].small_roi is True
+    #                     ):
+    #                         database.query(
+    #                             f'INSERT INTO {os.environ("DB_SCHEMA")}.trash ("usageId", type) VALUES (\'%s\', \'%s\')',
+    #                             (usage_id, trackers[idx].cls),
+    #                         )
+    #                     trackers.pop(idx)
+    #                 except:
+    #                     pass
+    #
+    #             for idx in unmatched_trackers:
+    #                 person = PersonTracker()
+    #                 person.set_class(bboxes[idx][0], names)
+    #                 person.set_bbox(bboxes[idx][1])
+    #                 trackers.append(person)
+    #
+    #             for i in range(len(boxes)):
+    #                 x1, y1, x2, y2 = boxes[i]
+    #                 cv2.putText(
+    #                     im0,
+    #                     str(trackers[i].id),
+    #                     (int(x1), int(y1) - 20),
+    #                     cv2.FONT_HERSHEY_DUPLEX,
+    #                     0.6,
+    #                     [255, 255, 255],
+    #                     1,
+    #                     cv2.LINE_AA,
+    #                 )
+    #                 trash_count(im0, trackers[i])
+    #
+    #             # if opt.view_img:
+    #             #     cv2.imshow("test", im0)
+    #             #     cv2.waitKey(1)  # 1 millisecond
+    #
+    #         frame_consumer.close()
+    #         trackers.clear()
+    #     database.close()
+    #     usage_consumer.close()

@@ -12,10 +12,8 @@ def id_gen(size=6, chars=string.ascii_uppercase + string.digits):
 class PersonTracker(object):
     def __init__(self):
         self.id = id_gen() #int(time.time() * 1000)
-        self.q = deque(maxlen=30)
         self.large_roi = False
         self.small_roi = False
-        return
 
     def set_bbox(self, bbox):
         self.bbox = bbox
@@ -23,12 +21,10 @@ class PersonTracker(object):
         self.h = 1e-6 + x2 - x1
         self.w = 1e-6 + y2 - y1
         self.centroid = tuple(map(int, ( x1 + self.h / 2, y1 + self.w / 2)))
-        return
 
     def set_class(self, _class, cls_list):
         self.cls_num = _class
         self.cls = cls_list[int(_class)]
-        print(self.cls)
 
     '''
     def annotate(self, image):
@@ -86,7 +82,6 @@ def tracker_match(trackers, detections, iou_thrd = 0.3):
             unmatched_trackers.append(t)
 
     for d, det in enumerate(detections):
-        print(matched_idx)
         if(d not in matched_idx[:,1]):
             unmatched_detections.append(d)
 
@@ -120,7 +115,7 @@ def trash_count(img, tracker):
     cv2.rectangle(small_roi, (0,0), (sh-1, sw-1), (0, 0, 255))
     if tracker.h / lh > 0.8 or tracker.w / lw > 0.8:
         tracker.large_roi = True
-    if tracker.large_roi is True:
+    if tracker.large_roi:
         if sx < tracker.bbox[0] and sy < tracker.bbox[1] and sx+sw > tracker.bbox[2] and sy+sh > tracker.bbox[3]:
             tracker.small_roi = True
         else:
