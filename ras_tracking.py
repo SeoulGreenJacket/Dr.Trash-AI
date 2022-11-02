@@ -192,8 +192,9 @@ if __name__ == "__main__":
     old_img_b = 1
 
     usage_consumer = KafkaConsumer(
-        os.environ["KAFKA_TOPIC_MAIN"],
+        'camera',
         bootstrap_servers=[f"{os.environ['KAFKA_HOST']}:{os.environ['KAFKA_PORT']}"],
+        group_id="camera"
     )
 
     database = DbClient(
@@ -207,91 +208,119 @@ if __name__ == "__main__":
     current_none_count = 0
     throwed_query = False
     track_count = 0
-    track_one_trash_types_counts= {
-        'plastic':0,
-        'can':0,
+    track_one_trash_types_counts = {
+        'plastic': 0,
+        'can': 0,
     }
-    one_trash_types_count=0
+    one_trash_types_count = 0
     with torch.no_grad():
         cam = cv2.VideoCapture(1)
+        usage_id = None
+        last_consume_time = 0
+
+        print("Ready for tracking")
 
         while True:
-            retval, img0 = cam.read()
-            result_img, det = detect(img0, imgsz, stride, device, model)
+            current_time = time.time()
+            if current_time - last_consume_time > 1:
+                last_consume_time = current_time
+                records = usage_consumer.poll()
+                while len(records) > 0:
+                    _, record = records.popitem()
+                    message = record.pop()
+                    command, *args = message.value.decode('utf-8').split(' ')
+                    if command == "START":
+                        usage_id = args[0]
 
-            # if current_none_count >= 30 and throwed_query:
-            #     throwed_query = False
-            #     current_none_count = 0
+                        current_none_count = 0
+                        throwed_query = False
+                        track_count = 0
+                        track_one_trash_types_counts = {
+                            'plastic': 0,
+                            'can': 0,
+                        }
+                        one_trash_types_count = 0
+                    elif command == "STOP":
+                        usage_id = None
+                        cv2.destroyAllWindows()
 
-            classes = []
-            # detection_bound = (0,0,640,640)
-            # plot_one_box(detection_bound, result_img, label="range", color=(0,0,0) )
-            max_conf_idx = 0
-            for idx, val in enumerate(det):
-                *xyxy, conf, cls = val
-                classes.append(int(cls))
-                if conf > max_conf_idx:
-                    max_conf_idx = idx
-                # if xyxy[0] >= detection_bound[0] and xyxy[1] >= detection_bound[1] \
-                #         and xyxy[2] <= detection_bound[2] and xyxy[3] <= detection_bound[3]:
-                label = f"{names[classes[idx]]} {conf:.2f}"
-                plot_one_box(xyxy, result_img, label=label, color=colors[classes[idx]], line_thickness=4)
-                # classes.append(int(cls)) #클래스 (객체 번호 집어넣음)
+            if usage_id is not None:
+                retval, img0 = cam.read()
+                result_img, det = detect(img0, imgsz, stride, device, model)
+
+                # if current_none_count >= 30 and throwed_query:
+                #     throwed_query = False
+                #     current_none_count = 0
+
+                classes = []
+                # detection_bound = (0,0,640,640)
+                # plot_one_box(detection_bound, result_img, label="range", color=(0,0,0) )
+                max_conf_idx = 0
+                for idx, val in enumerate(det):
+                    *xyxy, conf, cls = val
+                    classes.append(int(cls))
+                    if conf > max_conf_idx:
+                        max_conf_idx = idx
+                    # if xyxy[0] >= detection_bound[0] and xyxy[1] >= detection_bound[1] \
+                    #         and xyxy[2] <= detection_bound[2] and xyxy[3] <= detection_bound[3]:
+                    label = f"{names[classes[idx]]} {conf:.2f}"
+                    plot_one_box(xyxy, result_img, label=label, color=colors[classes[idx]], line_thickness=4)
+                    # classes.append(int(cls)) #클래스 (객체 번호 집어넣음)
 
 
-            if len(classes) == 0:
-                current_none_count += 1
+                if len(classes) == 0:
+                    current_none_count += 1
 
-                if current_none_count >= 30 and (track_one_trash_types_counts['can'] + track_one_trash_types_counts['plastic'] > 7) :
-                    frequent_type ='can' if (track_one_trash_types_counts['can']> track_one_trash_types_counts['plastic']) else 'plastic'
-                    print(f"트래킹 됨! {track_count} 종류: {frequent_type}")
-                    track_one_trash_types_counts['can'] = 0
-                    track_one_trash_types_counts['plastic'] = 0
+                    if current_none_count >= 30 and (track_one_trash_types_counts['can'] + track_one_trash_types_counts['plastic'] > 7) :
+                        frequent_type ='can' if (track_one_trash_types_counts['can']> track_one_trash_types_counts['plastic']) else 'plastic'
+                        print(f"트래킹 됨! {track_count} 종류: {frequent_type}")
+                        track_one_trash_types_counts['can'] = 0
+                        track_one_trash_types_counts['plastic'] = 0
 
-                    database.query(
-                        f'INSERT INTO {os.environ["DB_SCHEMA"]}.trash ("usageId", type) VALUES (%s, %s) RETURNING id;',
-                        (1, type),
-                    )
+                        database.query(
+                            f'INSERT INTO {os.environ["DB_SCHEMA"]}.trash ("usageId", type) VALUES (%s, %s) RETURNING id;',
+                            (usage_id, frequent_type),
+                        )
+                        current_none_count=0
+
+                else:
+                    if "pp" in names[classes[max_conf_idx]] or "ps" in names[classes[max_conf_idx]] or "pet" in names[
+                        classes[max_conf_idx]] or "pe" in names[classes[max_conf_idx]]:
+                        type = "plastic"
+                    else:
+                        type = names[classes[max_conf_idx]]
+
+                    track_one_trash_types_counts[type]+=1
                     current_none_count=0
 
-            else:
-                if "pp" in names[classes[max_conf_idx]] or "ps" in names[classes[max_conf_idx]] or "pet" in names[
-                    classes[max_conf_idx]] or "pe" in names[classes[max_conf_idx]]:
-                    type = "plastic"
-                else:
-                    type = names[classes[max_conf_idx]]
-
-                track_one_trash_types_counts[type]+=1
-                current_none_count=0
 
 
 
 
 
+                    # if not throwed_query:
+                    #     track_count += 1
+                    #     print(f"트래킹 됨! {track_count} 종류: {names[classes[max_conf_idx]]}")
+                    #
+                    #     if "pp" in names[classes[max_conf_idx]] or "ps" in names[classes[max_conf_idx]] or "pet" in names[classes[max_conf_idx]] or "pe" in names[classes[max_conf_idx]]:
+                    #         type = "plastic"
+                    #     else:
+                    #         type = names[classes[max_conf_idx]]
+                    #
+                    #     database.query(
+                    #         f'INSERT INTO {os.environ["DB_SCHEMA"]}.trash ("usageId", type) VALUES (%s, %s) RETURNING id;',
+                    #         (1, type),
+                    #     )
+                    #     throwed_query = True
+                    # current_none_count = 0
 
-                # if not throwed_query:
-                #     track_count += 1
-                #     print(f"트래킹 됨! {track_count} 종류: {names[classes[max_conf_idx]]}")
-                #
-                #     if "pp" in names[classes[max_conf_idx]] or "ps" in names[classes[max_conf_idx]] or "pet" in names[classes[max_conf_idx]] or "pe" in names[classes[max_conf_idx]]:
-                #         type = "plastic"
-                #     else:
-                #         type = names[classes[max_conf_idx]]
-                #
-                #     database.query(
-                #         f'INSERT INTO {os.environ["DB_SCHEMA"]}.trash ("usageId", type) VALUES (%s, %s) RETURNING id;',
-                #         (1, type),
-                #     )
-                #     throwed_query = True
-                # current_none_count = 0
+                # for x in classes:
+                #     print(names[x],end=', ')
+                # if classes:
+                #     print()
 
-            # for x in classes:
-            #     print(names[x],end=', ')
-            # if classes:
-            #     print()
-
-            cv2.imshow("title", result_img)
-            cv2.waitKey(1)
+                cv2.imshow("title", result_img)
+                cv2.waitKey(1)
         database.close()
 
     # trackers = []
