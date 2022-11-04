@@ -78,8 +78,8 @@ def detect(img0, imgsz, stride, device, model):
     t3 = time_synchronized()
 
     # Apply Classifier
-    if classify:
-        pred = apply_classifier(pred, modelc, img, im0s)
+    # if classify:
+    #     pred = apply_classifier(pred, modelc, img, im0s)
 
     # Process detections
     for i, det in enumerate(pred):  # detections per image
